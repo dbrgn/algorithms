@@ -1,0 +1,5 @@
+*.pyc
+*.o
+*.swp
+/lz/lz77
+/lz/lz78
