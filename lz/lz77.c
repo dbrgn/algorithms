@@ -1,45 +1,57 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <glib.h> // Dynamic arrays
 
-#define L_LOOKAHEAD 5
-#define L_SEARCH 16
+#define L_LOOKAHEAD 3
+#define L_SEARCH 5
 
-char *input = "in ulm und um ulm wachsen ulmen.\0";
-char *search, *lookahead;
-char *m_search, *m_lookahead;
+const char* const original = "in ulm und um ulm wachsen ulmen."; // Input string
+char *search = NULL, *lookahead = NULL; // Window pointers
+char *m_search = NULL, *m_lookahead = NULL; // Match pointers
+short s_search = 1; // Search window size
 
-struct reference {
+typedef struct {
     short start;
     short length;
     char first_mismatch;
-};
+} reference;
 
 int main() {
 
-    while (*input != '\0') {
+    // Pointer to input
+    char *input = original;
+
+    // Initialize dynamic symbol array
+    GArray *symbols = g_array_new(false, false, sizeof(reference));
+
+    printf("A,L,Z\n");
+    printf("-----\n");
+
+    while (*(input + s_search) != '\0') {
 
         // Set window pointers
         search = input;
-        lookahead = input + L_SEARCH;
+        lookahead = input + s_search;
 
         // Print status info
         printf("Search: [");
-        for (int i = 0; i < L_SEARCH; i++) {
+        for (int i = 0; i < s_search; i++) {
             printf("%c", *(search + i));
         }
         printf("], lookahead: [");
         for (int i = 0; i < L_LOOKAHEAD; i++) {
+            if (*(lookahead + i) == '\0') break;
             printf("%c", *(lookahead + i));
         }
         printf("]\n");
 
-        // Find longest matching substring
-
+        // Initialize variables for substring matching
         char *match = NULL;
-        struct reference matchref = {0, 0, *lookahead};
+        reference matchref = {0, 0, *lookahead};
 
         // Find longest match in search window
-        for (int i = 0; i < L_SEARCH; i++) {
+        for (int i = 0; i < s_search; i++) {
 
             // If the first char matches, see how long the match is.
             if (*(search + i) == *lookahead) {
@@ -56,7 +68,7 @@ int main() {
                         break;
                     }
 
-                    while (*(++m_search) == *(++m_lookahead)) {
+                    while (*(++m_search) == *(++m_lookahead) && *m_lookahead != '\0') {
                         // Advance pointers until no more matches occur
                     }
 
@@ -66,21 +78,41 @@ int main() {
                         matchref.first_mismatch = *m_lookahead;
                     }
 
-
                 } while (++match != lookahead);
 
             }
         }
 
-        printf("Longest match: (%u, %u, %c)\n", matchref.start, matchref.length, matchref.first_mismatch);
+        printf("%i,%i,%c\n", matchref.start, matchref.length, matchref.first_mismatch);
+        g_array_append_val(symbols, matchref);
 
         if (matchref.length > 0) {
             // output
-            input += matchref.length + 1;
+            if (s_search + matchref.length + 1 <= L_SEARCH) {
+                s_search += matchref.length + 1;
+            } else {
+                input += matchref.length + 1;
+            }
         } else {
             // output
-            input++;
+            if (s_search < L_SEARCH) {
+                s_search++;
+            } else {
+                input++;
+            }
         }
     }
 
+    // Print normal and encoded version
+    printf("\nOriginal version:  \"%s\"\n", original);
+    printf("Original length: %zu\n", strlen(original));
+    printf("Compressed version: \"");
+    reference *symbol = NULL;
+    for (int i = 0; i < symbols->len; i++) {
+        symbol = &g_array_index(symbols, reference, i);
+        printf("%i%i%c", symbol->start, symbol->length, symbol->first_mismatch);
+    }
+    printf("\"\n");
+    printf("Compressed length: %i", symbols->len * 3);
+    printf(" (%f%%)\n", (float)(symbols->len * 3) / strlen(original) * 100);
 }
